@@ -1,0 +1,228 @@
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+
+
+
+###Public Health and Economoic Consequences of Severe Weather in the U.S. 
+
+</br>
+
+
+###Synopsis
+This analysis aims to answer two key questions about severe weather and related
+atmospheric and meteorlogical activity in the U.S.:
+
+- Which types of events are most harmful with respect to population health?
+- Which types of events have the greatest economic consequences?
+
+The  focus will be on determining the top 10 events separately for both fatalaties 
+and injuries. Likewise, to determine the top 10 events with economic consequences
+we will analyze property and crop damage separetly.
+
+The decision was made to take property and crop damage estimates as-is and not 
+adjust amounts for inflation. Further analysis that adjusts for inflation and/or 
+analyzes data by year may yield different results.
+
+</br>
+
+
+###Data Repository
+Data was obtained from the U.S. National Oceanic and Atmospheric Administration's 
+(NOAA) storm database between 1950 and November 2011. Data may be downloaded here:
+ <https://d396qusza40orc.cloudfront.net/repdata%2Fdata%2FStormData.csv.bz2>.
+
+</br>
+
+
+###Data Definitions and Documentation
+- National Weather Service Storm Data Documentation may be found here: <https://d396qusza40orc.cloudfront.net/repdata%2Fpeer2_doc%2Fpd01016005curr.pdf>
+- National Climatic Data Center Storm Events FAQ may be found here:
+<https://d396qusza40orc.cloudfront.net/repdata%2Fpeer2_doc%2FNCDC%20Storm%20Events-FAQ%20Page.pdf>
+
+With this analysis limited to health and economic damages across the U.S. as a whole
+and without regard to the timing or year of the even, we need only consider the 
+columns below from the dataset:
+- EVTYPE: type of event (i.e. Hail, Tornado, Flash Flood)
+- FATALITIES: deaths related to the event
+- INJURIES: injuries related to the event
+- PROPDMG: amount of property damage
+- PROPDMGEXP: multiplier for property damage. (0-1: 1; H: 100; K: 1,000; M: 1,000,000; B: 1,000,000,000)
+- CROPDMG: Base amount of crop damage.
+- CROPDMGEXP: Base multiplier for crop damage. (0-1: 1; H: 100; K: 1,000; M: 1,000,000; B: 1,000,000,000)
+
+</br>
+
+
+###Data Processing
+```{r}
+# load required libraries
+library(knitr)
+library(ggplot2)
+
+#change this line to your workind directory if reproducing this research
+setwd("/Users/schre/DataScience/wd/repro_research/Project2")
+
+#read in data
+if(!file.exists("./data")){dir.create("./data")}
+if (!file.exists('data/repdata%2Fdata%2FStormData.csv.bz2')) {
+      fileurl <- "https://d396qusza40orc.cloudfront.net/repdata%2Fdata%2FStormData.csv.bz2"
+      download.file(fileurl, 'data/repdata%2Fdata%2FStormData.csv.bz2')
+}
+storm.data <- read.csv("data/repdata%2Fdata%2FStormData.csv.bz2", strip.white = TRUE,
+                 stringsAsFactors = FALSE)
+```
+
+First, we will eliminate any columns not required:
+```{r}
+#limit data to only those columns we need
+storm.data <- subset(storm.data, select = c(EVTYPE,FATALITIES,INJURIES,PROPDMG,
+                  PROPDMGEXP,CROPDMG,CROPDMGEXP))
+
+```
+
+Second, to make better sense of the property and crop damage numbers, we will take
+the cost x the multiplier (H, K, M, B) and create a new column called "propdmg"
+and "cropdmg":
+```{r}
+storm.data$propdmg <- 0
+storm.data[storm.data$PROPDMGEXP == "H", ]$propdmg <- 
+  storm.data[storm.data$PROPDMGEXP == "H", ]$PROPDMG * 10^2
+
+storm.data[storm.data$PROPDMGEXP == "K", ]$propdmg <- 
+  storm.data[storm.data$PROPDMGEXP == "K", ]$PROPDMG * 10^3
+
+storm.data[storm.data$PROPDMGEXP == "M", ]$propdmg <- 
+  storm.data[storm.data$PROPDMGEXP == "M", ]$PROPDMG * 10^6
+
+storm.data[storm.data$PROPDMGEXP == "B", ]$propdmg <- 
+  storm.data[storm.data$PROPDMGEXP == "B", ]$PROPDMG * 10^9
+
+storm.data$cropdmg <- 0
+storm.data[storm.data$CROPDMGEXP == "H", ]$cropdmg <- 
+  storm.data[storm.data$CROPDMGEXP == "H", ]$CROPDMG * 10^2
+
+storm.data[storm.data$CROPDMGEXP == "K", ]$cropdmg <- 
+  storm.data[storm.data$CROPDMGEXP == "K", ]$CROPDMG * 10^3
+
+storm.data[storm.data$CROPDMGEXP == "M", ]$cropdmg <- 
+  storm.data[storm.data$CROPDMGEXP == "M", ]$CROPDMG * 10^6
+
+storm.data[storm.data$CROPDMGEXP == "B", ]$cropdmg <- 
+  storm.data[storm.data$CROPDMGEXP == "B", ]$CROPDMG * 10^9
+```
+ 
+ 
+ 
+###Results
+Between 1950 to November 2011 the U.S. has seen a total of 15,145 fatalaties and 
+140,528 injuries:
+```{r}
+sum(storm.data$FATALITIES)
+sum(storm.data$INJURIES)
+```
+
+Furthermore, property and crop damage is an estimated $427 and $49 billion respectively:
+```{r}
+paste("$",format(sum(storm.data$propdmg), big.mark=","),sep="")
+paste("$",format(sum(storm.data$cropdmg), big.mark=","),sep="")
+```
+
+
+
+In order to break down these numbers we first must recognize that there are event
+types are not standardized. The dataset constains 985 distinct event types:
+```{r}
+unique(storm.data$EVTYPE)
+```
+
+Many of these are similar, vague terms or even combinations of some event types. 
+For example, "Thunderstorm", "Wind" and "Flood" are common events, but we can find both
+"Flash Flooding/Thunderstorm", "Thunderstorm Wind", etc. In fact, there are 101 
+event types containing the word 'flood':
+
+```{r}
+unique(grep("flood", tolower(storm.data$EVTYPE), value=T))
+```
+
+
+Our strategy will be to view the top 20 events and using regular expressions we'll
+combine similar event types. An initial plot of the top 20 events then looks like so: 
+```{r}
+#First we will find the top 20 event types in order to derive the EVTYPE names we
+#will later use in our regular expressions
+
+storm.data.injuries <- aggregate(INJURIES ~ EVTYPE, data=storm.data, sum)
+storm.data.injuries <- 
+      storm.data.injuries[order(-storm.data.injuries$INJURIES), ][1:20, ]
+
+ggplot(storm.data.injuries, aes(x = EVTYPE, y = INJURIES)) + 
+  geom_bar(stat = "identity", fill = "red") +
+  theme(axis.text.x = element_text(angle = 90, hjust = 1)) +
+  xlab("EVENT TYPE") + ylab("INJURIES") +
+  ggtitle("Top 20 Weather Events by Number of Injuries")
+
+```
+
+From this we see that we can combine the following events:
+- FLASH FLOOD and FLOOD
+- THUNDERSTORM WIND, THUNDERSTORM WINDS, and TSTM WIND
+- EXCESSIVE HEAT and HEAT
+- BLIZZARD, HEAVY SNOW, ICE STORM, and WINTER STORM
+
+
+```{r}
+#Standardize event types
+storm.data$EVTYPE[grep("THUN|TSTM", storm.data$EVTYPE, ignore.case = TRUE)] <- "THUNDERSTORM"
+storm.data$EVTYPE[grep("FLOOD", storm.data$EVTYPE, ignore.case = TRUE)] <- "FLOOD"
+storm.data$EVTYPE[grep("TORN", storm.data$EVTYPE, ignore.case = TRUE)] <- "TORNADO"
+storm.data$EVTYPE[grep("BLIZZARD|SNOW|ICE|FREEZE", storm.data$EVTYPE, ignore.case = 
+                             TRUE)] <- "WINTER STORM"
+storm.data$EVTYPE[grep("HURRICANE", storm.data$EVTYPE, ignore.case = TRUE)] <- "HURRICANE"
+storm.data$EVTYPE[grep("HEAT", storm.data$EVTYPE, ignore.case = TRUE)] <- "HEAT"
+```
+
+
+Next we will re-plot using the top 10 events for impacts on health. In this analysis 
+injuries and fatalities will simply be added together, no distinction will be made
+to their relative effects, as the relative serious of injuries alone cannot be determined.
+
+```{r}
+storm.data.health <- setNames(aggregate(INJURIES+FATALITIES ~ EVTYPE, 
+      data=storm.data, sum), c("EVTYPE", "VALUE"))
+
+storm.data.health <- 
+      storm.data.health[order(-storm.data.health$VALUE), ][1:10, ]
+storm.data.health <- transform(storm.data.health, EVTYPE = reorder(EVTYPE, VALUE))
+
+ggplot(storm.data.health, aes(x = EVTYPE, y = VALUE)) + 
+    geom_bar(stat = "identity", fill = "red") +
+    theme(axis.text.x = element_text(angle = 90, hjust = 1)) +
+    xlab("1950 - late 2011") + ylab("INJURIES + FATALATIES") +
+    ggtitle("Top 10 Weather Events Impacting Public Health")
+
+```
+
+
+Finally, we will use a similar methodology to plot the top 10 events for impacts 
+the economy, only this time we will chart property damage
+
+
+```{r}
+storm.data.econ <- setNames(aggregate(propdmg+cropdmg ~ EVTYPE, 
+      data=storm.data, sum), c("EVTYPE", "VALUE"))
+
+storm.data.econ <- 
+      storm.data.econ[order(-storm.data.econ$VALUE), ][1:10, ]
+storm.data.econ <- transform(storm.data.econ, EVTYPE = reorder(EVTYPE, VALUE))
+
+ggplot(storm.data.econ, aes(x = EVTYPE, y = VALUE/10^9)) + 
+    geom_bar(stat = "identity", fill = "red") +
+    theme(axis.text.x = element_text(angle = 90, hjust = 1)) +
+    xlab("1950 - late 2011") + ylab("PROPERTY + CROP DAMAGE ($ in billions)") +
+    ggtitle("Top 10 Weather Events Impacting the U.S. Economy")
+
+```
