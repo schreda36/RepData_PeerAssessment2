@@ -19,13 +19,13 @@ atmospheric and meteorlogical activity in the U.S.:
 - Which types of events are most harmful with respect to population health?
 - Which types of events have the greatest economic consequences?
 
-The  focus will be on determining the top 10 events separately for both fatalaties 
-and injuries. Likewise, to determine the top 10 events with economic consequences
-we will analyze property and crop damage separetly.
+The  focus will be on determining the top 10 events separately for both health 
+impact and economic consequences separetly.
 
 The decision was made to take property and crop damage estimates as-is and not 
 adjust amounts for inflation. Further analysis that adjusts for inflation and/or 
-analyzes data by year may yield different results.
+analyzes data by year may yield different results. Further decisions regarding 
+standardization of Event Types will be discussed under the Results section.
 
 </br>
 
@@ -44,7 +44,7 @@ Data was obtained from the U.S. National Oceanic and Atmospheric Administration'
 <https://d396qusza40orc.cloudfront.net/repdata%2Fpeer2_doc%2FNCDC%20Storm%20Events-FAQ%20Page.pdf>
 
 With this analysis limited to health and economic damages across the U.S. as a whole
-and without regard to the timing or year of the even, we need only consider the 
+and without regard to the timing or year of the event, we need only consider the 
 columns below from the dataset:
 - EVTYPE: type of event (i.e. Hail, Tornado, Flash Flood)
 - FATALITIES: deaths related to the event
@@ -115,7 +115,8 @@ storm.data[storm.data$CROPDMGEXP == "B", ]$cropdmg <-
   storm.data[storm.data$CROPDMGEXP == "B", ]$CROPDMG * 10^9
 ```
  
- 
+</br>
+
  
 ###Results
 Between 1950 to November 2011 the U.S. has seen a total of 15,145 fatalaties and 
@@ -134,45 +135,35 @@ paste("$",format(sum(storm.data$cropdmg), big.mark=","),sep="")
 
 
 In order to break down these numbers we first must recognize that there are event
-types are not standardized. The dataset constains 985 distinct event types:
-```{r}
-unique(storm.data$EVTYPE)
-```
-
-Many of these are similar, vague terms or even combinations of some event types. 
-For example, "Thunderstorm", "Wind" and "Flood" are common events, but we can find both
+types are not standardized. The dataset constains 985 distinct event types. Many 
+of these are similar, vague terms or even combinations of some event types. For 
+example, "Thunderstorm", "Wind" and "Flood" are common events, but we can find both
 "Flash Flooding/Thunderstorm", "Thunderstorm Wind", etc. In fact, there are 101 
-event types containing the word 'flood':
-
-```{r}
-unique(grep("flood", tolower(storm.data$EVTYPE), value=T))
-```
-
+event types containing the word 'flood'.
 
 Our strategy will be to view the top 20 events and using regular expressions we'll
 combine similar event types. An initial plot of the top 20 events then looks like so: 
 ```{r}
-#First we will find the top 20 event types in order to derive the EVTYPE names we
+#Find the top 20 event types in order to derive the EVTYPE names we
 #will later use in our regular expressions
 
 storm.data.injuries <- aggregate(INJURIES ~ EVTYPE, data=storm.data, sum)
 storm.data.injuries <- 
       storm.data.injuries[order(-storm.data.injuries$INJURIES), ][1:20, ]
+storm.data.injuries <- transform(storm.data.injuries, EVTYPE = reorder(EVTYPE, INJURIES))
 
 ggplot(storm.data.injuries, aes(x = EVTYPE, y = INJURIES)) + 
   geom_bar(stat = "identity", fill = "red") +
   theme(axis.text.x = element_text(angle = 90, hjust = 1)) +
-  xlab("EVENT TYPE") + ylab("INJURIES") +
-  ggtitle("Top 20 Weather Events by Number of Injuries")
+  xlab("") + ylab("INJURIES") +
+  ggtitle("Fig 1 Top 20 Weather Events by Number of Injuries")
 
 ```
 
-From this we see that we can combine the following events:
-- FLASH FLOOD and FLOOD
-- THUNDERSTORM WIND, THUNDERSTORM WINDS, and TSTM WIND
-- EXCESSIVE HEAT and HEAT
-- BLIZZARD, HEAVY SNOW, ICE STORM, and WINTER STORM
 
+From this we see that we can combine the events: FLASH FLOOD and FLOOD; THUNDERSTORM
+WIND, THUNDERSTORM WINDS, and TSTM WIND;  EXCESSIVE HEAT and HEAT; BLIZZARD, HEAVY 
+SNOW, ICE STORM, and WINTER STORM.
 
 ```{r}
 #Standardize event types
@@ -201,8 +192,8 @@ storm.data.health <- transform(storm.data.health, EVTYPE = reorder(EVTYPE, VALUE
 ggplot(storm.data.health, aes(x = EVTYPE, y = VALUE)) + 
     geom_bar(stat = "identity", fill = "red") +
     theme(axis.text.x = element_text(angle = 90, hjust = 1)) +
-    xlab("1950 - late 2011") + ylab("INJURIES + FATALATIES") +
-    ggtitle("Top 10 Weather Events Impacting Public Health")
+    xlab("") + ylab("INJURIES + FATALATIES") +
+    ggtitle("Fig 2 Top 10 Weather Events Impacting Public Health\n1950 through Nov 2011")
 
 ```
 
@@ -222,7 +213,8 @@ storm.data.econ <- transform(storm.data.econ, EVTYPE = reorder(EVTYPE, VALUE))
 ggplot(storm.data.econ, aes(x = EVTYPE, y = VALUE/10^9)) + 
     geom_bar(stat = "identity", fill = "red") +
     theme(axis.text.x = element_text(angle = 90, hjust = 1)) +
-    xlab("1950 - late 2011") + ylab("PROPERTY + CROP DAMAGE ($ in billions)") +
-    ggtitle("Top 10 Weather Events Impacting the U.S. Economy")
+    xlab("") + ylab("PROPERTY + CROP DAMAGE ($ in billions)") +
+    ggtitle("Fig 3 Top 10 Weather Events Impacting the U.S. Economy\n1950 through Nov 2011")
 
 ```
+
